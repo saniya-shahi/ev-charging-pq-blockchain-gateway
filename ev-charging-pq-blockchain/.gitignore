@@ -1,2 +1,4 @@
-__pycache__/ 
-*.pyc 
+evcrypto_env/
+__pycache__/
+*.pyc
+qr.png
