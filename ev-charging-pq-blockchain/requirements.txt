@@ -1,7 +1,9 @@
 fastapi
 uvicorn
-qrcode
-pillow
 pycryptodome
-qiskit
+qrcode[pil]
 requests
+ascon
+qiskit
+qiskit-aer
+sympy
