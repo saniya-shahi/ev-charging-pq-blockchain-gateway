@@ -6,3 +6,4 @@ qr.png
 # RSA keys (DO NOT COMMIT)
 private.pem
 public.pem
+.venv/

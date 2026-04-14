@@ -11,6 +11,13 @@ Responsibilities:
 import hashlib
 import time
 import json
+import os
+import sys
+
+# Allow running this file directly from the backend folder.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from fastapi import FastAPI
 from blockchain.blockchain import Blockchain
@@ -57,6 +64,18 @@ def register_user(name: str, password: str, mobile: str, pin: str, zone_code: st
     uid  = generate_id(name, password)
     vmid = generate_vmid(uid, mobile)
 
+    # Keep in-memory state stable while backend is running.
+    # Re-registration should not reset wallet balance.
+    if uid in users:
+        existing = users[uid]
+        print(f"[GRID] User already registered: UID={uid}  Balance preserved={existing['balance']}")
+        return {
+            "UID": uid,
+            "VMID": existing["vmid"],
+            "zone_code": existing["zone_code"],
+            "message": "User already registered; existing balance preserved",
+        }
+
     users[uid] = {
         "name":      name,
         "password":  password,
@@ -76,6 +95,17 @@ def register_franchise(name: str, password: str, zone_code: str, initial_balance
         return {"error": f"Invalid zone_code. Choose from: {[z for p in GRID.values() for z in p['zones']]}"}
 
     fid = generate_id(name, password, zone_code)
+
+    # Keep in-memory state stable while backend is running.
+    # Re-registration should not reset franchise balance.
+    if fid in franchises:
+        existing = franchises[fid]
+        print(f"[GRID] Franchise already registered: FID={fid}  Balance preserved={existing['balance']}")
+        return {
+            "FID": fid,
+            "zone_code": existing["zone_code"],
+            "message": "Franchise already registered; existing balance preserved",
+        }
 
     franchises[fid] = {
         "name":      name,
@@ -184,6 +214,20 @@ def get_blockchain():
 @app.get("/get_balances")
 def get_balances():
     return {
-        "users":      {uid: {"name": u["name"], "balance": u["balance"]} for uid, u in users.items()},
-        "franchises": {fid: {"name": f["name"], "balance": f["balance"]} for fid, f in franchises.items()},
+        "users": {
+            uid: {
+                "name": u["name"],
+                "balance": u["balance"],
+                "zone_code": u["zone_code"],
+            }
+            for uid, u in users.items()
+        },
+        "franchises": {
+            fid: {
+                "name": f["name"],
+                "balance": f["balance"],
+                "zone_code": f["zone_code"],
+            }
+            for fid, f in franchises.items()
+        },
     }
