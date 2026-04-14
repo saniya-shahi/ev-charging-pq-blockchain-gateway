@@ -3,131 +3,363 @@
 
 ---
 
-## Team Members
+## 1. Team Members
 
-- **Name:** Saniya Shahi | **ID:** 2022A8PS0810H  
-- **Name:** Kumar Shivansh Sinha | **ID:** 2022B1AA1227H  
-- **Name:** Surbhit Jain | **ID:** 2022B3A70868H  
-- **Name:** Rickpoul Ghosh | **ID:** 2022AAPS1549H  
-- **Name:** Gaurvi Khurana | **ID:** 2023A7PS0035H  
+- **Saniya Shahi** — 2022A8PS0810H
+- **Kumar Shivansh Sinha** — 2022B1AA1227H
+- **Surbhit Jain** — 2022B3A70868H
+- **Rickpoul Ghosh** — 2022AAPS1549H
+- **Gaurvi Khurana** — 2023A7PS0035H
 
 ---
 
-## Project Overview
+## 2. Abstract
 
-A simulated end-to-end EV charging payment system integrating:
-- **ASCON-128** (Lightweight Cryptography) — encrypts Franchise ID in QR codes
-- **RSA + Shor's Algorithm** (Quantum Cryptography) — encrypts user credentials and demonstrates quantum vulnerability
-- **SHA3-256 Blockchain** — immutable ledger of all charging transactions
+This project implements a secure, centralized EV charging payment gateway simulation that combines modern cryptographic primitives with a blockchain-backed audit trail. The system supports multi-user concurrent transactions across multiple client machines connected to a single grid authority server. It demonstrates:
 
-### Entities
-| Entity | Role |
+- lightweight cryptography for kiosk QR payloads,
+- public-key encryption for credential transmission,
+- blockchain immutability for transaction logging,
+- and a quantum-risk demonstration for RSA via Shor's algorithm simulation.
+
+---
+
+## 3. Objectives
+
+- Build an end-to-end EV charging payment flow with clear system roles.
+- Integrate cryptographic mechanisms from the course syllabus in one practical workflow.
+- Provide tamper-evident transaction recording.
+- Simulate realistic operational and failure edge cases.
+- Support LAN-based multi-user demonstration.
+
+---
+
+## 4. System Roles and Scope
+
+| Role | Responsibility |
 |---|---|
-| Grid Authority | Central server — registers users/franchises, processes payments, maintains blockchain |
-| Franchise | Charging station operator — receives QR code, unlocks hardware on success |
-| EV Owner | Initiates session by scanning QR, provides VMID + PIN + amount |
-| Charging Kiosk | Encrypts FID → QR, relays transaction to Grid |
+| Grid Authority (Backend) | Registers entities, validates credentials, processes payments, updates balances, appends blockchain blocks |
+| EV Owner (User) | Initiates payment using VMID + PIN + amount |
+| Charging Kiosk | Generates and scans encrypted QR payload containing franchise identity |
+| Franchise | Receives payment for charging services |
+
+**Scope note:** This is a controlled academic simulation; account deletion and production-grade persistence are intentionally out of scope.
 
 ---
 
-## Setup & Run
+## 5. Cryptographic Design
 
-### 1️. Activate Virtual Environment
+### 5.1 ASCON-128 (Lightweight Cryptography)
+- Used for encrypting franchise data in QR flow.
+- Nonce-based encryption with nonce bundled for decryption.
 
-```bash
-evcrypto_env\Scripts\activate   # Windows
-```
+### 5.2 RSA (Credential Protection)
+- User VMID and PIN are encrypted before network transfer.
+- Backend decrypts and validates credentials.
 
----
+### 5.3 SHA3-256 (Identity + Blockchain)
+- Used for deterministic identity and transaction hashing.
+- Blockchain block hash and transaction identifiers rely on SHA3-256.
 
-### 2️. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 3. Start Backend Server
-
-```bash
-uvicorn backend.main:app --reload
-```
+### 5.4 Quantum Security Demonstration
+- Shor's algorithm simulation illustrates RSA vulnerability under quantum computing assumptions.
 
 ---
 
-### 4️. Run Simulation
+## 6. Blockchain Design
 
-Open a new terminal and run:
-
-```bash
-python main_flow.py
-```
+- Genesis block created at startup.
+- Each successful payment appends a new block.
+- Block linkage via `prev_hash`.
+- Block hash computed on canonicalized data representation.
+- Refund/reversal transactions are recorded as explicit blocks with `dispute_flag=True`.
 
 ---
 
-## Project Structure
-```
+## 7. Multi-User Reliability Improvements (Implemented)
+
+The following improvements were added to make the project demo-safe for simultaneous users:
+
+- Thread-safe lock over shared in-memory state (`users`, `franchises`, blockchain append).
+- Atomic transaction critical section (validate + debit/credit + block append).
+- Duplicate user protection by mobile number.
+- Duplicate franchise protection by normalized `(name, zone)` identity.
+- Input validation:
+  - invalid amount (`<= 0`) rejected,
+  - negative initial franchise balance rejected,
+  - invalid zone rejected.
+- Consistent snapshot reads via protected balance/blockchain endpoints.
+- Graceful `Ctrl+C` exit in kiosk loop.
+
+---
+
+## 8. Hardware Failure Simulation (Implemented)
+
+A runtime toggle is available to simulate charging hardware failure after payment:
+
+- UI option: `9) Toggle hardware failure simulation`
+- Backend endpoints:
+  - `GET /hardware_failure_mode`
+  - `POST /hardware_failure_mode?enabled=true|false`
+
+When enabled, the backend:
+1. Processes transaction,
+2. Applies reversal,
+3. Appends refund block (`dispute_flag=True`),
+4. Returns `Charging Failed — Refunded`.
+
+---
+
+## 9. Repository Structure
+
+```text
 ev-charging-gateway/
 ├── backend/
-│   └── main.py           # FastAPI Grid Authority server
+│   └── main.py
 ├── blockchain/
-│   ├── block.py          # Block with SHA3-256 hash (json-canonical)
-│   └── blockchain.py     # Chain with integrity verification
+│   ├── block.py
+│   └── blockchain.py
 ├── crypto/
-│   ├── ascon.py          # ASCON-128 lightweight encryption (IoT/kiosk)
-│   ├── rsa_sim.py        # RSA-2048 for credential transmission
-│   ├── qiskit_shor.py    # Shor's Algorithm simulation (quantum attack demo)
-│   └── sha3_hash.py      # SHA3-256 / Keccak-256 ID generation
+│   ├── ascon.py
+│   ├── rsa_sim.py
+│   ├── qiskit_shor.py
+│   └── sha3_hash.py
 ├── kiosk/
-│   └── kiosk.py          # VFID generation, ASCON encrypt/decrypt, QR
+│   └── kiosk.py
 ├── user/
-│   └── user_app.py       # RSA-encrypted credential submission
+│   └── user_app.py
 ├── utils/
-│   ├── helpers.py        # VMID generation (UID + full mobile)
-│   └── qr.py             # QR code image generation
-├── main_flow.py          # Full simulation runner
+│   ├── helpers.py
+│   └── qr.py
+├── main_flow.py
+├── edge_case_tests.py
+├── run_server.ps1
+├── run_client.ps1
+├── run_client.bat
 └── requirements.txt
 ```
 
 ---
 
-## Key Design Decisions & Assumptions
+## 10. Environment and Dependency Setup (From Scratch)
 
-### Cryptography
-- **ASCON-128** with a random 16-byte nonce per message (nonce prepended to ciphertext for recovery). Key stored as a constant for demo; production should use a KDF or HSM.
-- **SHA3-256** used for UID/FID generation. True Keccak-256 (Ethereum-style) is available via `generate_id_keccak()` in `sha3_hash.py` if `pycryptodome` is installed.
-- **RSA-2048** encrypts the VMID+PIN bundle before network transmission. The Shor's demo factors a smaller modulus (N=3233) to show the same attack scales.
+### 10.1 Prerequisites
+- Windows + PowerShell
+- Python `3.10+`
+- LAN connectivity between server and clients
 
-### VMID
-- VMID = UID (16 hex chars) + full mobile number. Using the full number (not just last 4 digits) ensures global uniqueness.
+Check Python:
 
-### PIN vs Password
-- Registration password is used only to derive the UID. A separate PIN is stored for authorizing every charge transaction.
+```powershell
+python --version
+```
 
-### Blockchain
-- Block hash uses `json.dumps(sort_keys=True)` for deterministic serialization across Python versions.
-- Transaction ID = SHA3-256(UID + FID + timestamp + amount) per spec §6.
-- Every block includes a `dispute_flag` (bool). Refund/reverse blocks set it to `True`.
+### 10.2 Create Virtual Environment
 
-### Edge Cases Handled
-- **Insufficient balance**: transaction rejected before any balance change.
-- **Invalid FID**: rejected at Grid before processing.
-- **Invalid PIN**: rejected at Grid.
-- **Hardware failure after payment**: `hardware_failure` flag in `process_transaction()`. When `True`, balances are reversed and a refund block with `dispute_flag=True` is appended.
-- **Account closure mid-session**: assumed not possible in current implementation (no account deletion endpoint). Documented as out of scope for demo.
+From project root:
 
-### Grid Zones
-- 3 providers: TataPower, Adani, ChargePoint
-- 3 zones each: e.g. TP-NORTH, TP-SOUTH, TP-WEST
-- Both users and franchises must register with a valid zone_code.
+```powershell
+python -m venv evcrypto_env
+```
+
+### 10.3 Activate Virtual Environment
+
+```powershell
+.\evcrypto_env\Scripts\Activate.ps1
+```
+
+If execution policy blocks scripts:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\evcrypto_env\Scripts\Activate.ps1
+```
+
+### 10.4 Install Dependencies
+
+```powershell
+pip install -r requirements.txt
+```
 
 ---
 
-## Quantum Attack Summary
+## 11. How To Run the System
 
-Shor's algorithm finds the period `r` of `f(x) = a^x mod N`, allowing factorization of RSA moduli in polynomial time on a quantum computer. The demo:
-1. Sets up a small RSA key (N=3233, e=17)
-2. Runs Shor's period-finding (classical simulation, or Qiskit circuit for N=15)
-3. Recovers `p`, `q`, and reconstructs private key `d`
-4. Concludes that RSA-encrypted EV credential transmissions are quantum-breakable
+## 11.1 Recommended Script-Based Run
+
+### Server machine (host)
+
+```powershell
+.\run_server.ps1
+```
+
+### Client machine(s)
+
+```powershell
+.\run_client.ps1 -ServerIp 172.16.46.192
+```
+
+Alternative for clients:
+- double-click `run_client.bat`
+
+## 11.2 Manual Run
+
+### Server
+
+```powershell
+.\evcrypto_env\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+### Clients
+
+```powershell
+.\evcrypto_env\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:GRID_URL="http://172.16.46.192:8000"
+python main_flow.py
+```
+
+---
+
+## 12. Network Configuration for Demo
+
+- Ensure all machines are on the same LAN.
+- On the server machine, allow inbound TCP `8000`.
+- Verify reachability from client browser:
+  - `http://172.16.46.192:8000/grid_info`
+
+---
+
+## 13. Demo Procedure for Evaluation
+
+1. Start server on host machine.
+2. Start `main_flow.py` on 2+ client systems.
+3. In one client:
+   - register default users (`1`),
+   - register default franchise (`2`).
+4. Perform transactions from different client systems (`4`).
+5. Display shared balances (`6`) and blockchain ledger (`5`) from any client.
+6. Enable hardware failure simulation (`9`) and run one transaction to show automated refund logic.
+
+This sequence demonstrates consistency, concurrency handling, and fault-path recovery.
+
+---
+
+## 14. Test and Validation
+
+Automated edge-case suite:
+
+```powershell
+python edge_case_tests.py
+```
+
+Validated scenarios include:
+- duplicate registration and idempotency,
+- invalid input rejection,
+- invalid PIN/FID handling,
+- insufficient balance,
+- concurrent transaction correctness,
+- hardware-failure rollback and refund block generation.
+
+Observed result in current build: **22/22 tests passed**.
+
+---
+
+## 15. API Endpoints (Core)
+
+### Operational
+- `GET /grid_info`
+- `POST /register_user`
+- `POST /register_franchise`
+- `POST /process_transaction`
+- `GET /get_balances`
+- `GET /get_blockchain`
+
+### Simulation/Testing
+- `GET /hardware_failure_mode`
+- `POST /hardware_failure_mode?enabled=true|false`
+- `POST /admin/reset_state?confirm=true`
+
+---
+
+## 16. Design Assumptions
+
+- Backend state is maintained in memory for classroom demo simplicity.
+- Single backend worker (`--workers 1`) is used to preserve in-memory consistency.
+- Password is used for UID derivation; transaction authorization uses PIN.
+- VMID format: UID prefix + full mobile number.
+
+---
+
+## 17. Limitations and Future Enhancements
+
+Current limitations:
+- No persistent database; state resets when server restarts.
+- No role-based authentication layer for admin endpoints.
+- No account deletion/closure workflow.
+
+Potential enhancements:
+- migrate to SQLite/PostgreSQL persistence,
+- add JWT/session authentication,
+- add audit dashboard and structured logging,
+- introduce rate limiting and stronger API validation.
+
+---
+
+## 18. Troubleshooting
+
+- **Client cannot connect**
+  - confirm server is running,
+  - confirm firewall rule on port `8000`,
+  - confirm correct `ServerIp` in client command.
+- **Changes not reflected**
+  - restart backend server.
+- **Dependency/module errors**
+  - reactivate venv and run `pip install -r requirements.txt`.
+
+---
+
+## 19. Windows Path-Length Issue (WinError 206)
+
+On some Windows laptops, client startup may fail with:
+
+- `WinError 206: The filename or extension is too long`
+
+This is typically triggered when loading native `pycryptodome` binaries from a very deep project path (especially inside cloud-sync folders like OneDrive).
+
+### 19.1 Reliable Demo Fix (Recommended)
+
+Run the client from a short path such as `C:\evdemo`.
+
+```powershell
+New-Item -ItemType Directory -Force C:\evdemo | Out-Null
+robocopy "C:\Users\shiva\OneDrive\Documents\projects\ev-charging-pq-blockchain-gateway-pr-kiosk-clean (2)\ev-charging-pq-blockchain-gateway-pr-kiosk-clean\ev-charging-pq-blockchain-gateway-pr-kiosk-clean" "C:\evdemo" /E
+cd C:\evdemo
+.\run_client.bat -ServerIp 172.16.46.192
+```
+
+### 19.2 Faster Alternative (No Full Copy)
+
+Map a short drive letter to the long project path:
+
+```powershell
+subst X: "C:\Users\shiva\OneDrive\Documents\projects\ev-charging-pq-blockchain-gateway-pr-kiosk-clean (2)\ev-charging-pq-blockchain-gateway-pr-kiosk-clean\ev-charging-pq-blockchain-gateway-pr-kiosk-clean"
+cd X:\
+.\run_client.bat -ServerIp 172.16.46.192
+```
+
+If the error persists, recreate virtual environment from short path:
+
+```powershell
+Remove-Item -Recurse -Force .\evcrypto_env
+.\run_client.bat -ServerIp 172.16.46.192
+```
+
+### 19.3 Live Demo Checklist with This Issue
+
+1. Host machine keeps `.\run_server.ps1` running.
+2. Host firewall allows inbound TCP `8000` (private network).
+3. Client machine runs from short path (`C:\evdemo` or `X:\`).
+4. Run app flow: `1 -> 2 -> 4 (multi-clients) -> 6 -> 5 -> 9 + 4`.
